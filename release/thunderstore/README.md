@@ -1,4 +1,4 @@
-﻿# LWF Raven QoL
+# LWF Raven QoL
 
 A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 

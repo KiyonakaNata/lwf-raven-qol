@@ -1,4 +1,4 @@
-﻿[English](README.en.md)
+[English](README.en.md)
 
 # LWF Raven QoL
 

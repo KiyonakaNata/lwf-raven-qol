@@ -1,4 +1,4 @@
-﻿[日本語](README.md)
+[日本語](README.md)
 
 # LWF Raven QoL
 
