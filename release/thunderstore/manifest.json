@@ -1,0 +1,9 @@
+{
+  "name": "LwfRavenQol",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/KiyonakaNata/lwf-raven-qol",
+  "description": "Raven quality-of-life: drag to lay a chain of Delivery Ravens and Dispatch Ports at max range, retarget a Raven without losing cargo, hover to see carried stock, and map-view stock badges.",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2305"
+  ]
+}
