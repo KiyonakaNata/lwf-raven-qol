@@ -2,11 +2,11 @@
 
 A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
-![Drag placement](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/chain-drag.webp)
-
 ## Drag placement
 
 Place a Raven, drag, and release. Pairs of "Dispatch Port + Raven" are placed at maximum carrying range. Release on an existing Dispatch Port to share it, or on a building with an input port to connect to it.
+
+![Drag placement](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/chain-drag.webp)
 
 ## Retarget a Raven
 
