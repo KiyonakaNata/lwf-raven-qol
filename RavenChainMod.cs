@@ -89,7 +89,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.0.1";
+        internal const string PluginVersion = "1.1.0";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -98,6 +98,7 @@ namespace LwfRavenQol
         internal static ConfigEntry<bool> MapEnabled;
         internal static ConfigEntry<bool> KeepOldExit;
         internal static ConfigEntry<bool> MapHideManual;
+        internal static ConfigEntry<bool> MapHalfStepEnabled;
         internal static ConfigEntry<bool> StockVisible;
         internal static ConfigEntry<bool> StockMapOverlay;
 
@@ -130,9 +131,15 @@ namespace LwfRavenQol
             MapHideManual = Config.Bind(
                 "4. Map View", "Hide control hints", true, "");
 
+            // 親マスの境界にも止まれるようにする（中央→境界→次の中央）。
+            // 移動の刻みが倍になるので、要らない人が切れるように残す
+            MapHalfStepEnabled = Config.Bind(
+                "4. Map View", "Stop at tile boundaries", true, "");
+
             Chain.Init();
             Trip.Init();
             HudTweaks.Init();
+            MapHalfStep.Init();
 
             _harmony = new Harmony(PluginGuid);
             // PatchAll(Type) は「渡した型そのもの」しか見ない。入れ子にした注釈クラスは
@@ -165,6 +172,9 @@ namespace LwfRavenQol
 
             try { HudTweaks.Update(); }
             catch (Exception e) { Log.LogError("[hud] " + e); }
+
+            try { MapHalfStep.Update(); }
+            catch (Exception e) { Log.LogError("[map] " + e); }
         }
 
         private void OnGUI()
@@ -929,26 +939,42 @@ namespace LwfRavenQol
             // （先回りして置くと、ちょっと引いただけで満額の区間が生えてしまう）
             if (Manhattan(delta) < span + 1) { return nothing; }
 
+            if (index.GetCurrentItemCount() <= 0) { Skip(null); return nothing; }
+            if (_ravenEquip == null) { Skip(null); return nothing; }
+
             // 荷下ろし地点は「カーソルの向きで、マンハッタン距離ちょうど span」の点。
             // 斜めに引けば斜めの角に落ちる＝運搬範囲のひし形の縁いっぱい。
-            Vector2Int reach = ReachPoint(delta, span);
-            Vector2Int exitAddr = new Vector2Int(from.x + reach.x, from.y + reach.y);
+            // そこが埋まっていたり未所有なら、1マスずつ手前へ寄せて置ける所を探す
+            // （終端と同じ流儀。途中の岩や設備で線が途切れるのを避ける）。
+            // 次のレイヴンは荷下ろし地点の1つ先＝出力口が向く先。カーソル寄りの隣が
+            // 埋まっていれば、残りの3方向も試す（向きは Hop がそのまま合わせる）。
+            string reason = null;
+            for (int d = span; d >= 1; d--)
+            {
+                Vector2Int reach = ReachPoint(delta, d);
+                Vector2Int exitAddr = new Vector2Int(from.x + reach.x, from.y + reach.y);
+                if (!CanPlace(hit, exitAddr)) { if (reason == null) { reason = BlockReason(hit, exitAddr); } continue; }
 
-            // 次のレイヴンはその1つ先。荷下ろし地点の出力口が向く先でもある。
-            Direction4 dir = DominantDirection(new Vector2Int(to.x - exitAddr.x, to.y - exitAddr.y));
-            if (dir == Direction4.Invalid) { return nothing; }
-            Vector2Int step = DirectionCalc.DIRECTION4_VECTOR2_INT[dir];
-            Vector2Int nextAddr = new Vector2Int(exitAddr.x + step.x, exitAddr.y + step.y);
+                Direction4 first = DominantDirection(new Vector2Int(to.x - exitAddr.x, to.y - exitAddr.y));
+                if (first == Direction4.Invalid) { first = DominantDirection(delta); }
+                if (first == Direction4.Invalid) { continue; }
+                for (int i = 0; i < 4; i++)
+                {
+                    Direction4 dir = DirectionCalc.Rotate(first, i);
+                    Vector2Int step = DirectionCalc.DIRECTION4_VECTOR2_INT[dir];
+                    Vector2Int nextAddr = new Vector2Int(exitAddr.x + step.x, exitAddr.y + step.y);
+                    if (nextAddr == from) { continue; }                 // 元のレイヴンの上には置けない
+                    if (!CanPlace(hit, nextAddr)) { if (reason == null) { reason = BlockReason(hit, nextAddr); } continue; }
+
+                    Hop hop = new Hop(exitEquip, hit, placer, proc, index, raven, exitAddr, nextAddr, dir);
+                    return hop.Start();
+                }
+            }
 
             // ここで駄目でも「今は置けない」だけ。カーソルが戻れば続きを敷ける。
             // 未所有の土地を一度なぞっただけでドラッグが死ぬのは行き過ぎだった。
-            if (index.GetCurrentItemCount() <= 0) { Skip(null); return nothing; }
-            if (!CanPlace(hit, exitAddr)) { Skip(BlockReason(hit, exitAddr)); return nothing; }
-            if (!CanPlace(hit, nextAddr)) { Skip(BlockReason(hit, nextAddr)); return nothing; }
-            if (_ravenEquip == null) { Skip(null); return nothing; }
-
-            Hop hop = new Hop(exitEquip, hit, placer, proc, index, raven, exitAddr, nextAddr, dir);
-            return hop.Start();
+            Skip(reason);
+            return nothing;
         }
 
         /// <summary>1区間ぶんの手順。ContinueWith で「置く → 続き」を繋ぐための入れ物。</summary>
@@ -1118,15 +1144,76 @@ namespace LwfRavenQol
                 Vector2Int candidate = new Vector2Int(from.x + reach.x, from.y + reach.y);
                 if (!CanPlace(hit, candidate)) { continue; }
 
-                // 出力口は「引いた向きの先」へ向けておく
-                Direction4 outDir = DominantDirection(new Vector2Int(to.x - candidate.x, to.y - candidate.y));
-                if (outDir == Direction4.Invalid) { outDir = DominantDirection(delta); }
-                if (outDir == Direction4.Invalid) { return; }
+                Direction4 endFacing;
+                if (!TryPickEndFacing(hit, gm.MapObjectPlacer.PutDirection, raven, candidate, to, delta, out endFacing)) { return; }
 
-                new Finish(_exitEquip, hit, gm.MapObjectPlacer, proc, raven,
-                    DirectionCalc.GetOpposite(outDir)).Start(candidate);
+                new Finish(_exitEquip, hit, gm.MapObjectPlacer, proc, raven, endFacing).Start(candidate);
                 return;
             }
+        }
+
+        /// <summary>
+        /// 終端の荷下ろし地点の向き（BackOut＝出力口は背面）。
+        ///   1. 離したマスそのものに置くなら、本体のスナップが決めた向きをそのまま使う。
+        ///      隣のコンベアや工房の入力口へ出力口を向ける判断は、本体の PutPreviewSnapper が
+        ///      カーソルの下のマスについて毎フレーム済ませていて、その結果が PutDirection の
+        ///      一時上書きに乗っている。押し込みを飲み込んで MOD が置き直す以上、これを捨てると
+        ///      「プレビューでは向いていたのに、置いたら違う向き」になる（2026-09-07 の報告）
+        ///   2. 範囲内に丸めて別のマスへ置くなら、本体は見ていないので、そのマスの隣で
+        ///      出力を受けてくれる相手を自分で探して向ける
+        ///   3. どちらも無ければ、引いた向きの先へ出力口を向ける（線を伸ばす前提の向き）
+        /// </summary>
+        private static bool TryPickEndFacing(CursorHitChecker hit, PutDirection putDirection, TransporterObject raven,
+            Vector2Int candidate, Vector2Int to, Vector2Int delta, out Direction4 facing)
+        {
+            facing = Direction4.Invalid;
+
+            if (candidate == to && TryGetSnapOverride(putDirection, out facing)) { return true; }
+
+            Direction4 start = DominantDirection(delta);
+            if (start == Direction4.Invalid) { start = Direction4.North; }
+            for (int i = 0; i < 4; i++)
+            {
+                Direction4 d = DirectionCalc.Rotate(start, i);
+                Vector2Int step = DirectionCalc.DIRECTION4_VECTOR2_INT[d];
+                MapObject mo = hit.GetAdjustedMapObject(new Vector2Int(candidate.x + step.x, candidate.y + step.y));
+                ConnectableObject co = mo as ConnectableObject;
+                if (co == null || ReferenceEquals(co, raven)) { continue; }   // 自分のレイヴンへ折り返すのは無し
+                if (!co.CanConnect(d, IOType.Output)) { continue; }           // 相手の、こちらを向いた口が入力か
+                facing = DirectionCalc.GetOpposite(d);                         // 背面（出力）を相手へ
+                return true;
+            }
+
+            Direction4 outDir = DominantDirection(new Vector2Int(to.x - candidate.x, to.y - candidate.y));
+            if (outDir == Direction4.Invalid) { outDir = DominantDirection(delta); }
+            if (outDir == Direction4.Invalid) { return false; }
+            facing = DirectionCalc.GetOpposite(outDir);
+            return true;
+        }
+
+        private static FieldInfo _fSnapOverride;
+        private static bool _fSnapOverrideLooked;
+
+        /// <summary>本体のスナップが PutDirection に乗せている一時上書き。無ければ false。</summary>
+        private static bool TryGetSnapOverride(PutDirection putDirection, out Direction4 dir)
+        {
+            dir = Direction4.Invalid;
+            if (putDirection == null) { return false; }
+            if (!_fSnapOverrideLooked)
+            {
+                _fSnapOverrideLooked = true;
+                _fSnapOverride = typeof(PutDirection).GetField("_temporaryOverrideDirection",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                if (_fSnapOverride == null)
+                {
+                    RavenQolPlugin.Log.LogWarning("[chain] PutDirection._temporaryOverrideDirection not found; end facing falls back to the drag direction.");
+                }
+            }
+            if (_fSnapOverride == null) { return false; }
+            object v = _fSnapOverride.GetValue(putDirection);
+            if (v == null) { return false; }
+            dir = (Direction4)v;
+            return dir != Direction4.Invalid && dir != Direction4.Num;
         }
 
         /// <summary>

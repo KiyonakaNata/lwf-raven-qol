@@ -34,7 +34,7 @@ BepInEx/plugins/LwfRavenQol.dll を消す
 
      https://github.com/KiyonakaNata/lwf-raven-qol
 
-Lazy Witch's Factory ver 0.24.1 / BepInEx 5.4.23.5 で確認
+Lazy Witch's Factory ver 0.27.0 / BepInEx 5.4.23.5 で確認
 非公式のMOD、公式のサポート対象外
 
 
@@ -73,5 +73,5 @@ Usage, settings, bug reports
      https://github.com/KiyonakaNata/lwf-raven-qol
      (written in Japanese and English)
 
-Tested with Lazy Witch's Factory ver 0.24.1 / BepInEx 5.4.23.5
+Tested with Lazy Witch's Factory ver 0.27.0 / BepInEx 5.4.23.5
 Unofficial mod, not supported by the developer

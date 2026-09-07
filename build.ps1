@@ -31,7 +31,8 @@ $outDll  = Join-Path $outDir 'LwfRavenQol.dll'
 $sources = @(
     (Join-Path $here 'RavenChainMod.cs'),  # プラグイン本体（Harmony の割り込みと中継線の敷き方）
     (Join-Path $here 'RavenStockView.cs'),  # 中身の表示（ゲームの挙動には触らない）
-    (Join-Path $here 'HudTweaks.cs')       # マップビューの HUD 調整（同上）
+    (Join-Path $here 'HudTweaks.cs'),      # マップビューの HUD 調整（同上）
+    (Join-Path $here 'MapHalfStep.cs')     # マップビューの半歩移動（境界に止まる）
 )
 
 foreach ($p in @($Csc, $Managed) + $sources) {

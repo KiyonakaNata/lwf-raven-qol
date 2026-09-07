@@ -26,12 +26,18 @@ What happens at the end depends on what is under the cursor when you release
 |---|---|
 | An existing Dispatch Port | The Raven connects to it |
 | A building with an input port (portal, water conveyor, crafter, ...) | A Dispatch Port is placed next to the input and connected |
-| Anything else | A Dispatch Port is placed there |
+| Anything else | A Dispatch Port is placed there (facing an adjacent input port, as the game's snap decides) |
 
-The drag stops when any of these happens
+Rocks, buildings and unowned land in the way are skipped by placing short of them. The drag stops only when nothing can be placed
 
-- Out of Ravens
-- Unowned land or an occupied tile
+- Out of Ravens ends the drag
+
+### Auto placement
+
+![Auto placement](img/chain-click.webp)
+
+Place a Raven, then click a delivery spot beyond its carrying range.
+Rocks, buildings and unowned land are avoided, and the line is laid straight for you.
 
 ### Retarget a Raven
 
@@ -71,6 +77,17 @@ Three buttons sit at the top left
 
 The control hints and the development sponsor list are always hidden.
 
+#### Half-tile stops
+
+![Half-tile stops](img/map-halfstep.webp)
+
+Adds "between tiles" to the map view's camera stops.
+
+- Redeploy on a seam lands Momoko on the seam
+- A seam stop is available only when the tiles on both sides (all four at a corner) are owned
+- The left-side panels are hidden while on a seam
+- Hold a movement key to keep moving
+
 ---
 
 ## Install (manual)
@@ -84,7 +101,7 @@ The control hints and the development sponsor list are always hidden.
 
 2. Run the game once and quit, so that `BepInEx/plugins` is created
 3. Put `LwfRavenQol.dll` from this mod's zip into **`BepInEx/plugins/`**
-4. Start the game, place a Raven, and drag to confirm the line grows
+4. Start the game, place a Raven, then click a distant spot and confirm the line grows
 
 ## Uninstall
 
@@ -130,6 +147,7 @@ The control hints and the development sponsor list are always hidden.
 |---|---|---|
 | Enabled | `true` | |
 | Hide control hints | `true` | |
+| Stop at tile boundaries | `true` | `false` for tile centers only |
 
 ---
 
@@ -137,7 +155,7 @@ The control hints and the development sponsor list are always hidden.
 
 | | |
 |---|---|
-| Lazy Witch's Factory | Built and tested on **ver 0.24.1** |
+| Lazy Witch's Factory | Tested on **ver 0.27.0** |
 | BepInEx | Tested on **5.4.23.5** (any 5.4.x should work) |
 
 If a game update breaks this mod, that is the end of its life — remove it.
@@ -149,7 +167,7 @@ Check `BepInEx/LogOutput.log` first
 | Log | State |
 |---|---|
 | No `[boot] LWF Raven QoL ...` line | **Not loaded** — check where the DLL is |
-| Fewer than `patches=10` | **Some features inactive** — game version mismatch |
+| Fewer than `patches=14` | **Some features inactive** — game version mismatch |
 | `cannot read ...` | **Only the feature named in the log is off** — everything else still works |
 
 **Bug reports** should include

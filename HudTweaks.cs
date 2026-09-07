@@ -94,6 +94,7 @@ namespace LwfRavenQol
         // [採掘ポイント] ボタンの状態。左の縦積み（ポータル・看板・電話・採掘ポイント）
         // 全部の ON/OFF を受け持つ
         private static bool _minePointsVisible = true;
+        private static bool _midpointHold;             // 半歩（境界）に居る間は左の一覧を隠す
         private static bool _mineInitialized;
 
         // 左の縦積みの根（CanvasUI/UpperLeftUI/NormalGameUIList）。
@@ -184,7 +185,7 @@ namespace LwfRavenQol
                         _minePointsVisible = true;
                         _mineInitialized = true;
                     }
-                    SetLeftStackVisible(_minePointsVisible);
+                    ApplyLeftStackVisibility();
                     _nextDropRefresh = float.NegativeInfinity;   // 入場の直後に1回目を回す
                 }
                 else
@@ -666,7 +667,7 @@ namespace LwfRavenQol
         private static void OnMineButtonClicked()
         {
             _minePointsVisible = !_minePointsVisible;
-            SetLeftStackVisible(_minePointsVisible);
+            ApplyLeftStackVisibility();
             ApplyButtonStates();
             RavenQolPlugin.Log.LogInfo("[hud] left panels " + (_minePointsVisible ? "shown" : "hidden"));
         }
@@ -703,6 +704,24 @@ namespace LwfRavenQol
             if (found == null) { return false; }
             _leftStack = found.gameObject;
             return true;
+        }
+
+        internal static BirdsEyeCameraManagerMono BirdsEye { get { return _birdsEye; } }
+
+        /// <summary>
+        /// マップビューの半歩（境界）に居る間、左の一覧を隠す。あれは「今いる親マス」の情報なので、
+        /// 境界で出しておくと片側の話しか出ず紛らわしい。中央に戻ればボタンの状態どおりに戻す。
+        /// </summary>
+        internal static void SetMidpointHold(bool hold)
+        {
+            if (_midpointHold == hold) { return; }
+            _midpointHold = hold;
+            if (IsMapViewActive()) { ApplyLeftStackVisibility(); }
+        }
+
+        private static void ApplyLeftStackVisibility()
+        {
+            SetLeftStackVisible(_minePointsVisible && !_midpointHold);
         }
 
         /// <summary>
