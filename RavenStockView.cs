@@ -255,6 +255,22 @@ namespace LwfRavenQol
             return string.CompareOrdinal(a.ItemID, b.ItemID);
         }
 
+        /// <summary>荷が1つでも入っているか。撤去時に荷下ろし地点を残すかの判断に使う。</summary>
+        internal static bool HasAny(InventoryManager inventory)
+        {
+            if (inventory == null) { return false; }
+            InventoryDB db = inventory.GetDB();
+            if (db == null) { return false; }
+            foreach (KeyValuePair<int, ItemCount> cell in db.StoragedItems)
+            {
+                ItemCount item = cell.Value;
+                if (item == null || item.Count <= 0) { continue; }
+                if (string.IsNullOrEmpty(item.ItemID) || item.ItemID == "None") { continue; }
+                return true;
+            }
+            return false;
+        }
+
         private static void Gather(InventoryManager inventory)
         {
             if (inventory == null) { return; }

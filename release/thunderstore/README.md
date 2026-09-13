@@ -22,6 +22,7 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 - Point at a Raven → `Toggle Dispatch Port Setup` (default `Tab`)
 - Click / share / drag a new line
 - The old Dispatch Port stays
+- A Dispatch Port that still holds items stays when its Raven is removed
 
 ![Retargeting](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/retarget.webp)
 

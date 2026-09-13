@@ -89,7 +89,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.1.1";
+        internal const string PluginVersion = "1.2.0";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -97,6 +97,7 @@ namespace LwfRavenQol
         internal static ConfigEntry<bool> RetargetEnabled;
         internal static ConfigEntry<bool> MapEnabled;
         internal static ConfigEntry<bool> KeepOldExit;
+        internal static ConfigEntry<bool> KeepStockedExit;
         internal static ConfigEntry<bool> MapHideManual;
         internal static ConfigEntry<bool> MapHalfStepEnabled;
         internal static ConfigEntry<bool> StockVisible;
@@ -117,6 +118,11 @@ namespace LwfRavenQol
             // 後から繋ぐ使い方もできなくなる。Tab で入った変更のときだけ片付けを止める。
             KeepOldExit = Config.Bind(
                 "2. Retarget", "Keep the old dispatch port", true, "");
+            // レイヴンを撤去したとき、荷下ろし地点に荷が残っていれば片付けない。
+            // 本体は繋ぐレイヴンが居なくなった瞬間に消すので、中の荷ごと失われていた。
+            // 残した地点は空でも自分では消えない（本体が片付けるのは繋ぎが切れた瞬間だけ）。要らなければ右クリックで回収
+            KeepStockedExit = Config.Bind(
+                "2. Retarget", "Keep a dispatch port that still holds items", true, "");
 
             StockVisible = Config.Bind(
                 "3. Stock Display", "Enabled", true, "");
@@ -342,20 +348,28 @@ namespace LwfRavenQol
             }
         }
 
-        // 配送先を選び直したときの、元の荷下ろし地点の後始末。
-        // 本体は繋ぐレイヴンが居なくなった荷下ろし地点を即座に片付けるが、
-        // 行き先を変えただけで消えると中の荷ごと失われる。変更中だけ片付けを見送る。
+        // 繋ぐレイヴンが居なくなった荷下ろし地点の後始末。本体は即座に片付けるが、
+        //   - 配送先を変えただけで消えると中の荷ごと失われる → 変更中は見送る
+        //   - レイヴンを撤去したときも、荷が残っていれば見送る（荷は右クリックで回収するか、
+        //     出口にコンベアを繋いで取り出す。空になっても自分では消えない）
         [HarmonyPatch(typeof(TransporterExitObject), "ReleaseIfNoLinkedTransporter")]
         internal static class KeepOldExit
         {
-            private static bool Prefix()
+            private static bool Prefix(TransporterExitObject __instance)
             {
                 try
                 {
-                    if (!RavenQolPlugin.KeepOldExit.Value) { return true; }
-                    if (!Chain.IsRetargetingNow()) { return true; }
-                    RavenQolPlugin.Log.LogInfo("[chain] kept the old dispatch port");
-                    return false;
+                    if (RavenQolPlugin.KeepOldExit.Value && Chain.IsRetargetingNow())
+                    {
+                        RavenQolPlugin.Log.LogInfo("[chain] kept the old dispatch port");
+                        return false;
+                    }
+                    if (RavenQolPlugin.KeepStockedExit.Value && StockView.HasAny(__instance.GetInventory()))
+                    {
+                        RavenQolPlugin.Log.LogInfo("[chain] kept a dispatch port that still holds items");
+                        return false;
+                    }
+                    return true;
                 }
                 catch (Exception e)
                 {

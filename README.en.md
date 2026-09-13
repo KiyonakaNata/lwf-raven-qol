@@ -51,6 +51,8 @@ Point at a placed Raven and press the key bound to **"Toggle Dispatch Port Setup
 - Press the same key again or R-Click → cancel (the Raven keeps its current target)
 
 The old Dispatch Port **stays**, and leftover items can be taken out with conveyors.
+
+A Dispatch Port that still holds items also stays when its Raven is removed. It does not disappear on its own once empty; right-click it to remove it.
 If the Raven is mid-flight, it returns home, reloads, and heads for the new target.
 
 ### See what's inside
@@ -133,6 +135,7 @@ Adds "between tiles" to the map view's camera stops.
 |---|---|---|
 | Enabled | `true` | |
 | Keep the old Dispatch Port | `true` | `false` to let it disappear automatically |
+| Keep a dispatch port that still holds items | `true` | `false` to let it disappear when its Raven is removed |
 
 **[3. Stock Display]**
 

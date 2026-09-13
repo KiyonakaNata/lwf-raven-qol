@@ -2,7 +2,7 @@
 #
 #   powershell -ExecutionPolicy Bypass -File release\publish-tree.ps1 [-Dest D:\Wiki\lwf-raven-qol]
 #
-# 出すもの:  ソース 4 本・build.ps1、release\ の README.md / README.en.md・img\・
+# 出すもの:  ソース 4 本・build.ps1、release\ の README.md / README.en.md / CHANGELOG.md・img\・
 #            release.ps1・zip-README.txt・publish-tree.ps1・thunderstore\
 # 出さないもの:
 #   - README.md（開発用。設計の記録と手元のパスを含む）
@@ -33,6 +33,7 @@ foreach ($f in @('RavenChainMod.cs','RavenStockView.cs','HudTweaks.cs','MapHalfS
 
 CopyTo (Join-Path $here 'README.md') 'README.md'
 CopyTo (Join-Path $here 'README.en.md') 'README.en.md'
+CopyTo (Join-Path $here 'CHANGELOG.md') 'CHANGELOG.md'
 
 $img = Join-Path $Dest 'img'
 if (-not (Test-Path $img)) { New-Item -ItemType Directory -Path $img -Force | Out-Null }
