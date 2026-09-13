@@ -89,7 +89,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.2.0";
+        internal const string PluginVersion = "1.2.1";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;

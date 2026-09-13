@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md)
 
+## 1.2.1 — 2026-09-13
+
+- Changelog から、Thunderstore では開けないリンクを外した
+
 ## 1.2.0 — 2026-09-13
 
 - レイヴンを撤去しても、荷が残っている荷下ろし地点は残る（`Keep a dispatch port that still holds items`）
