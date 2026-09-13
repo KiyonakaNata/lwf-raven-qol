@@ -89,7 +89,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.1.0";
+        internal const string PluginVersion = "1.1.1";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -166,6 +166,9 @@ namespace LwfRavenQol
         {
             try { Chain.UpdateRetarget(); }
             catch (Exception e) { Log.LogError("[retarget] " + e); }
+
+            try { Chain.UpdateAuto(); }
+            catch (Exception e) { Log.LogError("[auto] " + e); }
 
             try { StockView.Update(); }
             catch (Exception e) { Log.LogError("[stock] " + e); }
@@ -658,6 +661,16 @@ namespace LwfRavenQol
         private static int _hops;
         private static bool _swallowedClick;
 
+        // 1区間の置き直しが本体の非同期を通っている間の印。終わる前に次を始めると二重に置く
+        private static bool _hopInFlight;
+        private static bool _lastStepPlaced;
+
+        // 離した後の自動継続。狙いは離した時点のマスで固定し、カーソルには頼らない。
+        // 本体の PerformHoldAction は押している間しか来ないので、クリックだけだと数フレームぶん
+        // （＝数区間）で止まっていた。離した後は Update から自分で回す
+        private static bool _autoActive;
+        private static Vector2Int _autoTarget;
+
         // 同じ文句を毎フレーム出さないための間引き
         private const float SkipMessageInterval = 1.5f;
         private static string _lastSkipKey;
@@ -739,6 +752,8 @@ namespace LwfRavenQol
             _blocked = false;
             _hops = 0;
             _swallowedClick = false;
+            _hopInFlight = false;
+            _autoActive = false;
             _lastSkipKey = null;
             _lastSkipTime = float.NegativeInfinity;
         }
@@ -911,7 +926,15 @@ namespace LwfRavenQol
         /// </summary>
         internal static UniTask<MapObject> Step(TransporterExitCatalystEquip exitEquip)
         {
+            return StepToward(exitEquip, null);
+        }
+
+        /// <summary>狙いを固定して1区間。target が null ならカーソルの下を狙う。</summary>
+        private static UniTask<MapObject> StepToward(TransporterExitCatalystEquip exitEquip, Vector2Int? target)
+        {
             UniTask<MapObject> nothing = UniTask.FromResult<MapObject>(null);
+            _lastStepPlaced = false;
+            if (_hopInFlight) { return nothing; }
 
             CursorHitChecker hit = _fHit.GetValue(exitEquip) as CursorHitChecker;
             GridManager gm = _fGrid.GetValue(exitEquip) as GridManager;
@@ -924,11 +947,17 @@ namespace LwfRavenQol
             if (raven == null) { return nothing; }
 
             ChildGrid ravenGrid = raven.GetAddressGrid();
-            ChildGrid cursorGrid = hit.HitChildGrid;
-            if (ravenGrid == null || cursorGrid == null) { return nothing; }
-
+            if (ravenGrid == null) { return nothing; }
             Vector2Int from = ravenGrid.GlobalAddress;
-            Vector2Int to = cursorGrid.GlobalAddress;
+
+            Vector2Int to;
+            if (target.HasValue) { to = target.Value; }
+            else
+            {
+                ChildGrid cursorGrid = hit.HitChildGrid;
+                if (cursorGrid == null) { return nothing; }
+                to = cursorGrid.GlobalAddress;
+            }
 
             int span = CurrentSpan();
             if (span < 1) { return nothing; }
@@ -942,32 +971,40 @@ namespace LwfRavenQol
             if (index.GetCurrentItemCount() <= 0) { Skip(null); return nothing; }
             if (_ravenEquip == null) { Skip(null); return nothing; }
 
-            // 荷下ろし地点は「カーソルの向きで、マンハッタン距離ちょうど span」の点。
-            // 斜めに引けば斜めの角に落ちる＝運搬範囲のひし形の縁いっぱい。
-            // そこが埋まっていたり未所有なら、1マスずつ手前へ寄せて置ける所を探す
-            // （終端と同じ流儀。途中の岩や設備で線が途切れるのを避ける）。
-            // 次のレイヴンは荷下ろし地点の1つ先＝出力口が向く先。カーソル寄りの隣が
-            // 埋まっていれば、残りの3方向も試す（向きは Hop がそのまま合わせる）。
+            // 荷下ろし地点は、運搬範囲のひし形の縁（マンハッタン距離ちょうど span）のどこか。
+            // 狙いへ一番近づく点＝引いた向きの点から順に試し、埋まっていたり未所有なら
+            // 縁の別の点へ回る。縁ぜんぶ駄目なら1マス内側の縁で同じことをする。
+            // 直線上だけを見ていた頃は、直線が未購入の土地を横切ると（2×2 の直角に3枚買った
+            // ような形）そこで止まっていた。縁を回れば、買ってある側の腕を通って曲がれる。
+            // 次のレイヴンは荷下ろし地点の1つ先＝出力口が向く先。狙い寄りの隣が埋まって
+            // いれば、残りの3方向も試す（向きは Hop がそのまま合わせる）。
             string reason = null;
+            int now = Manhattan(delta);
             for (int d = span; d >= 1; d--)
             {
-                Vector2Int reach = ReachPoint(delta, d);
-                Vector2Int exitAddr = new Vector2Int(from.x + reach.x, from.y + reach.y);
-                if (!CanPlace(hit, exitAddr)) { if (reason == null) { reason = BlockReason(hit, exitAddr); } continue; }
-
-                Direction4 first = DominantDirection(new Vector2Int(to.x - exitAddr.x, to.y - exitAddr.y));
-                if (first == Direction4.Invalid) { first = DominantDirection(delta); }
-                if (first == Direction4.Invalid) { continue; }
-                for (int i = 0; i < 4; i++)
+                List<Vector2Int> ring = RingByClosest(from, d, to);
+                for (int r = 0; r < ring.Count; r++)
                 {
-                    Direction4 dir = DirectionCalc.Rotate(first, i);
-                    Vector2Int step = DirectionCalc.DIRECTION4_VECTOR2_INT[dir];
-                    Vector2Int nextAddr = new Vector2Int(exitAddr.x + step.x, exitAddr.y + step.y);
-                    if (nextAddr == from) { continue; }                 // 元のレイヴンの上には置けない
-                    if (!CanPlace(hit, nextAddr)) { if (reason == null) { reason = BlockReason(hit, nextAddr); } continue; }
+                    Vector2Int exitAddr = ring[r];
+                    // 狙いから遠ざかる点は使わない（戻り道になる）
+                    if (Manhattan(new Vector2Int(to.x - exitAddr.x, to.y - exitAddr.y)) >= now) { continue; }
+                    if (!CanPlace(hit, exitAddr)) { if (reason == null) { reason = BlockReason(hit, exitAddr); } continue; }
 
-                    Hop hop = new Hop(exitEquip, hit, placer, proc, index, raven, exitAddr, nextAddr, dir);
-                    return hop.Start();
+                    Direction4 first = DominantDirection(new Vector2Int(to.x - exitAddr.x, to.y - exitAddr.y));
+                    if (first == Direction4.Invalid) { first = DominantDirection(delta); }
+                    if (first == Direction4.Invalid) { continue; }
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Direction4 dir = DirectionCalc.Rotate(first, i);
+                        Vector2Int step = DirectionCalc.DIRECTION4_VECTOR2_INT[dir];
+                        Vector2Int nextAddr = new Vector2Int(exitAddr.x + step.x, exitAddr.y + step.y);
+                        if (nextAddr == from) { continue; }                 // 元のレイヴンの上には置けない
+                        if (!CanPlace(hit, nextAddr)) { if (reason == null) { reason = BlockReason(hit, nextAddr); } continue; }
+
+                        Hop hop = new Hop(exitEquip, hit, placer, proc, index, raven, exitAddr, nextAddr, dir);
+                        _lastStepPlaced = true;
+                        return hop.Start();
+                    }
                 }
             }
 
@@ -1010,6 +1047,7 @@ namespace LwfRavenQol
 
             internal UniTask<MapObject> Start()
             {
+                _hopInFlight = true;
                 _hit.SetAdjustedChildGridGlobalAddress(_exitAddr);
                 UniTask<FamObject> task = Summon(_exitEquip.summonStrategyDistributor, _placer.PutDirection, _hit, _facing);
                 // C# 5 はメソッドグループの戻り値でオーバーロードを選び分けられないので、
@@ -1026,6 +1064,7 @@ namespace LwfRavenQol
                 if (exit == null)
                 {
                     _hit.ClearAdjustedChildGridGlobalAddress();
+                    _hopInFlight = false;
                     Block("InvalidDestination");
                     return nothing;
                 }
@@ -1033,6 +1072,7 @@ namespace LwfRavenQol
                 {
                     exit.DestroyPivot();
                     _hit.ClearAdjustedChildGridGlobalAddress();
+                    _hopInFlight = false;
                     Block("InvalidDestination");
                     return nothing;
                 }
@@ -1051,6 +1091,7 @@ namespace LwfRavenQol
             private MapObject OnRavenPlaced(FamObject placed)
             {
                 _hit.ClearAdjustedChildGridGlobalAddress();
+                _hopInFlight = false;
 
                 TransporterObject next = placed as TransporterObject;
                 if (next == null)
@@ -1105,13 +1146,84 @@ namespace LwfRavenQol
 
             Vector2Int from = ravenGrid.GlobalAddress;
             Vector2Int to = cursorGrid.GlobalAddress;
+
+            // カーソルの下の物は、当たり判定で拾った物を優先する。マスの絵は背が高いので、
+            // 絵の上にカーソルがあってもマスの住所は隣を指していることがある
+            MapObject onCursor = hit.HitMapObjectClass;
+            if (onCursor == null) { onCursor = hit.GetAdjustedMapObject(to); }
+
+            // まだ運搬範囲より遠いなら、ここで閉じずに狙いを固定して敷き続ける
+            int maxSpan = MaxSpan();
+            if (maxSpan >= 1 && RavenQolPlugin.ChainEnabled.Value
+                && Manhattan(new Vector2Int(to.x - from.x, to.y - from.y)) > maxSpan)
+            {
+                _autoActive = true;
+                _autoTarget = to;
+                RavenQolPlugin.Log.LogInfo("[chain] released far from the raven; continuing toward " + to);
+                return;
+            }
+
+            FinishToward(proc, hit, gm, raven, to, onCursor, true);
+        }
+
+        /// <summary>
+        /// 離した後の自動継続。Update から毎フレーム。1区間が本体の非同期を通っている間は待つ。
+        /// 狙いに届く距離まで来たら終端を置いて閉じる。進めなくなったときもそこで閉じる。
+        /// </summary>
+        internal static void UpdateAuto()
+        {
+            if (!_autoActive) { return; }
+            if (_hopInFlight) { return; }
+            if (_blocked) { _autoActive = false; return; }   // 途中で辻褄が合わなくなった。線はそこまで
+
+            TransporterSummonProcessor proc = FindLinkingProcessor();
+            if (proc == null) { _autoActive = false; return; }   // 右クリック等で本体側が閉じた
+
+            EnsureEquips();
+            if (_exitEquip == null) { _autoActive = false; return; }
+            CursorHitChecker hit = _fHit.GetValue(_exitEquip) as CursorHitChecker;
+            GridManager gm = _fGrid.GetValue(_exitEquip) as GridManager;
+            TransporterObject raven = proc.GetEntryObject();
+            ChildGrid ravenGrid = raven != null ? raven.GetAddressGrid() : null;
+            if (hit == null || gm == null || ravenGrid == null) { _autoActive = false; return; }
+
+            Vector2Int from = ravenGrid.GlobalAddress;
+            Vector2Int to = _autoTarget;
+            int maxSpan = MaxSpan();
+            int dist = Manhattan(new Vector2Int(to.x - from.x, to.y - from.y));
+
+            if (maxSpan < 1 || dist <= maxSpan || _hops >= 64)
+            {
+                _autoActive = false;
+                FinishToward(proc, hit, gm, raven, to, hit.GetAdjustedMapObject(to), false);
+                return;
+            }
+
+            StepToward(_exitEquip, to).Forget();
+            if (!_lastStepPlaced)
+            {
+                // 縁のどこにも置けない。届く所まで来ているので、ここで閉じる
+                _autoActive = false;
+                FinishToward(proc, hit, gm, raven, to, hit.GetAdjustedMapObject(to), false);
+            }
+        }
+
+        /// <summary>
+        /// 線の終端を決めて置く。カーソルの下にあるものを見て、繋げるなら繋げる方を優先する。
+        /// useSnap は「離したマスそのものに置くとき、本体のスナップの向きを採るか」。
+        /// 自動継続ではカーソルが別の所に居るので採らない。
+        /// </summary>
+        private static void FinishToward(TransporterSummonProcessor proc, CursorHitChecker hit, GridManager gm,
+            TransporterObject raven, Vector2Int to, MapObject onCursor, bool useSnap)
+        {
+            ChildGrid ravenGrid = raven.GetAddressGrid();
+            if (ravenGrid == null) { return; }
+            Vector2Int from = ravenGrid.GlobalAddress;
             Vector2Int delta = new Vector2Int(to.x - from.x, to.y - from.y);
 
             // 行き先の判定は本体の運搬範囲そのままで見る（間隔の調整は関係ない）
             int maxSpan = MaxSpan();
             if (maxSpan < 1) { return; }
-
-            MapObject onCursor = hit.GetAdjustedMapObject(to);
 
             // 1) カーソルの下が繋げる荷下ろし地点なら、新しく置かずにそこを行き先にする
             TransporterExitObject existing = onCursor as TransporterExitObject;
@@ -1127,10 +1239,16 @@ namespace LwfRavenQol
             }
 
             // 2) カーソルの下が受け口を持つもの（ポータル・水路・工房・別のレイヴン…）なら、
-            //    その入力口の隣へ置いて噛み合わせる
+            //    その入力口の隣へ置いて噛み合わせる。隣を探す基準は相手自身のマス
             Vector2Int spot;
             Direction4 facing;
-            if (TryFindFeedSpot(hit, onCursor, from, to, maxSpan, out spot, out facing))
+            Vector2Int targetAddr = to;
+            if (onCursor != null)
+            {
+                ChildGrid targetGrid = onCursor.GetAddressGrid();
+                if (targetGrid != null) { targetAddr = targetGrid.GlobalAddress; }
+            }
+            if (TryFindFeedSpot(hit, onCursor, from, targetAddr, maxSpan, out spot, out facing))
             {
                 new Finish(_exitEquip, hit, gm.MapObjectPlacer, proc, raven, facing).Start(spot);
                 return;
@@ -1145,7 +1263,7 @@ namespace LwfRavenQol
                 if (!CanPlace(hit, candidate)) { continue; }
 
                 Direction4 endFacing;
-                if (!TryPickEndFacing(hit, gm.MapObjectPlacer.PutDirection, raven, candidate, to, delta, out endFacing)) { return; }
+                if (!TryPickEndFacing(hit, useSnap ? gm.MapObjectPlacer.PutDirection : null, raven, candidate, to, delta, out endFacing)) { return; }
 
                 new Finish(_exitEquip, hit, gm.MapObjectPlacer, proc, raven, endFacing).Start(candidate);
                 return;
@@ -1339,6 +1457,28 @@ namespace LwfRavenQol
             int py = dist - px;
             if (py > ay) { py = ay; px = dist - py; }
             return new Vector2Int(px * Sign(delta.x), py * Sign(delta.y));
+        }
+
+        /// <summary>
+        /// center からマンハッタン距離ちょうど d の点（ひし形の縁）を、target に近い順に並べる。
+        /// 引いた向きの点（ReachPoint）が先頭に来るので、直線が空いていれば従来どおりそこに置く。
+        /// </summary>
+        private static List<Vector2Int> RingByClosest(Vector2Int center, int d, Vector2Int target)
+        {
+            List<Vector2Int> ring = new List<Vector2Int>(4 * d);
+            for (int dx = -d; dx <= d; dx++)
+            {
+                int dy = d - Mathf.Abs(dx);
+                ring.Add(new Vector2Int(center.x + dx, center.y + dy));
+                if (dy != 0) { ring.Add(new Vector2Int(center.x + dx, center.y - dy)); }
+            }
+            ring.Sort(delegate (Vector2Int a, Vector2Int b)
+            {
+                int da = Manhattan(new Vector2Int(target.x - a.x, target.y - a.y));
+                int db = Manhattan(new Vector2Int(target.x - b.x, target.y - b.y));
+                return da.CompareTo(db);
+            });
+            return ring;
         }
 
         private static bool TryGetCarryingRange(out float carryingRange)

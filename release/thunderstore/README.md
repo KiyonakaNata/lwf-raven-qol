@@ -13,7 +13,7 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
 - Place a Raven, then click a delivery spot beyond its carrying range
 - Rocks, buildings and unowned land are avoided
-- The line is laid straight for you
+- The line is laid for you, around rocks, buildings and unowned land
 
 ![Auto placement](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/chain-click.webp)
 
@@ -35,6 +35,7 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
 - Top left: redeploy Momoko / stock overlay / left-panel toggle
 - Control hints and sponsors are hidden
+- The wand panel shows while a wand skill is selected
 
 ![Map view buttons](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/mapview.webp)
 

@@ -37,7 +37,7 @@ Rocks, buildings and unowned land in the way are skipped by placing short of the
 ![Auto placement](img/chain-click.webp)
 
 Place a Raven, then click a delivery spot beyond its carrying range.
-Rocks, buildings and unowned land are avoided, and the line is laid straight for you.
+Rocks, buildings and unowned land are avoided, and the line is laid for you.
 
 ### Retarget a Raven
 
@@ -75,7 +75,7 @@ Three buttons sit at the top left
 | Stock | Overlays "icon × count" badges on every Raven and Dispatch Port on screen |
 | Three icons (pickaxe, signboard, phone) | Toggles the left-side panels (portal, signboard, telephone, mining points) |
 
-The control hints and the development sponsor list are always hidden.
+The control hints and the development sponsor list are hidden. The wand panel shows while a wand skill is selected.
 
 #### Half-tile stops
 

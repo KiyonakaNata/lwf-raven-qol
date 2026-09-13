@@ -73,6 +73,11 @@ namespace LwfRavenQol
         private static bool _wasMapView;
         private static bool _wasEnabled = true;
         private static bool _manualHidden;
+
+        // 魔法（杖のスキル）の枠。マップビューでも魔法は使えるので、構えている間だけ
+        // 説明一式を枠ごと戻す（名前・コスト・対象の文字だけ透かして出すと、地の枠が無くて読みにくい）
+        private static GameObject _wandPanel;    // _manualWandSkill
+        private static GameObject _commonColumn; // 共通操作（移動・回転…）を抱える、根の直下の枠。魔法中も要らない
         private static GameObject _movedDropUI;
         private static GameObject _wiredDropUI;
 
@@ -205,6 +210,16 @@ namespace LwfRavenQol
                 HideMapButtons();
             }
 
+            if (mapView && RavenQolPlugin.MapHideManual.Value)
+            {
+                // 魔法を構えている間だけ説明一式を枠ごと戻し、下ろしたら消す
+                bool wantVisible = WandActive();
+                if (wantVisible == _manualHidden)
+                {
+                    if (wantVisible) { ShowWandOnly(); } else { SetManualVisible(false); }
+                }
+            }
+
             if (mapView)
             {
                 float now = Time.unscaledTime;
@@ -268,6 +283,9 @@ namespace LwfRavenQol
             Transform root = _manual.transform;
             ManualTargets.Add(root.gameObject);
 
+            _wandPanel = FieldObject("_manualWandSkill");
+            _commonColumn = TopLevelChild(_manual.transform, FieldObject("_manualCommonAction"));
+
             // 根の外にぶら下がっている部品だけ個別に足す
             BindingFlags f = BindingFlags.Instance | BindingFlags.NonPublic;
             for (int i = 0; i < ManualFieldNames.Length; i++)
@@ -279,6 +297,49 @@ namespace LwfRavenQol
                 if (component.transform.IsChildOf(root)) { continue; }
                 if (!ManualTargets.Contains(component.gameObject)) { ManualTargets.Add(component.gameObject); }
             }
+        }
+
+        private static GameObject FieldObject(string fieldName)
+        {
+            if (_manual == null) { return null; }
+            FieldInfo field = typeof(ManualUIManager).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Component component = field != null ? field.GetValue(_manual) as Component : null;
+            return (component != null && component) ? component.gameObject : null;
+        }
+
+        /// <summary>target を抱える、root 直下の子。枠（FrameCommon）ごと扱うため。</summary>
+        private static GameObject TopLevelChild(Transform root, GameObject target)
+        {
+            if (target == null || !target) { return null; }
+            Transform t = target.transform;
+            while (t != null && t.parent != root) { t = t.parent; }
+            return t != null ? t.gameObject : null;
+        }
+
+        private static void SetGroupVisible(GameObject target, bool visible)
+        {
+            if (target == null || !target) { return; }
+            CanvasGroup group = target.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                if (visible) { return; }
+                group = target.AddComponent<CanvasGroup>();
+            }
+            group.alpha = visible ? 1f : 0f;
+            group.interactable = visible;
+            group.blocksRaycasts = visible;
+        }
+
+        /// <summary>魔法を構えている間の見せ方。説明一式を枠ごと戻し、共通操作の枠だけ消す。</summary>
+        private static void ShowWandOnly()
+        {
+            SetManualVisible(true);
+            SetGroupVisible(_commonColumn, false);
+        }
+
+        private static bool WandActive()
+        {
+            return _wandPanel != null && _wandPanel && _wandPanel.activeInHierarchy;
         }
 
         // ---- 操作説明の消し込み ----------------------------------------------
@@ -300,6 +361,8 @@ namespace LwfRavenQol
                 group.interactable = visible;
                 group.blocksRaycasts = visible;
             }
+            // 魔法中に消した共通操作の枠は、ここを通るたびに素へ戻す（見せる側でも消す側でも）
+            SetGroupVisible(_commonColumn, true);
         }
 
         /// <summary>
