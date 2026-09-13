@@ -1,9 +1,5 @@
 # Changelog
 
-## 1.2.1 — 2026-09-13
-
-- Changelog page: removed a link that did not resolve on Thunderstore
-
 ## 1.2.0 — 2026-09-13
 
 - A Dispatch Port that still holds items stays when its Raven is removed (`Keep a dispatch port that still holds items`)
