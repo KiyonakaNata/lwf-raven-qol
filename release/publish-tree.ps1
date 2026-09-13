@@ -34,6 +34,7 @@ foreach ($f in @('RavenChainMod.cs','RavenStockView.cs','HudTweaks.cs','MapHalfS
 CopyTo (Join-Path $here 'README.md') 'README.md'
 CopyTo (Join-Path $here 'README.en.md') 'README.en.md'
 CopyTo (Join-Path $here 'CHANGELOG.md') 'CHANGELOG.md'
+CopyTo (Join-Path $here 'CHANGELOG.ja.md') 'CHANGELOG.ja.md'
 
 $img = Join-Path $Dest 'img'
 if (-not (Test-Path $img)) { New-Item -ItemType Directory -Path $img -Force | Out-Null }
