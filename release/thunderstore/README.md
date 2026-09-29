@@ -34,11 +34,12 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
 ## Map view
 
-- Top left: redeploy Momoko / stock overlay / left-panel toggle
+- Top left: redeploy Momoko / stock overlay
+- Since 1.2.1 the left-panel toggle is gone: game v0.29 added its own Map information tab (F1)
 - Control hints and sponsors are hidden
 - The wand panel shows while a wand skill is selected
 
-![Map view buttons](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/mapview.webp)
+![Changes in 1.2.1](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/mapview-compare-121.png)
 
 ## Half-tile stops
 

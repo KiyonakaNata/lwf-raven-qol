@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1 — 2026-09-29
+
+- The left-panel toggle button is gone: game v0.29 added its own Map information tab (F1), which made it redundant. The left panels now start right below the Stock button
+
 ## 1.2.0 — 2026-09-13
 
 - A Dispatch Port that still holds items stays when its Raven is removed (`Keep a dispatch port that still holds items`)

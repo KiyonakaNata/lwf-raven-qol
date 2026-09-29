@@ -67,17 +67,19 @@ Point at a Raven or a Dispatch Port to see what it holds, as "icon × count"
 
 ### Map view
 
-![Map view buttons](img/mapview.webp)
+![Changes in 1.2.1](img/mapview-compare-121.png)
 
-Three buttons sit at the top left
+Two buttons sit at the top left
 
 | Button | What it does |
 |---|---|
 | Redeploy | Redeploy Momoko |
 | Stock | Overlays "icon × count" badges on every Raven and Dispatch Port on screen |
-| Three icons (pickaxe, signboard, phone) | Toggles the left-side panels (portal, signboard, telephone, mining points) |
 
-The control hints and the development sponsor list are hidden. The wand panel shows while a wand skill is selected.
+- The left-panel toggle button from 1.2.0 is gone: game v0.29 added its own Map information tab (F1), so the panels open and close there now
+- The control hints and the development sponsor list are hidden. The wand panel shows while a wand skill is selected.
+
+![Map view buttons](img/mapview.webp)
 
 #### Half-tile stops
 

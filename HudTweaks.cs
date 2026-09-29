@@ -96,6 +96,10 @@ namespace LwfRavenQol
         private static TextMeshProUGUI _mineButtonText;
         private static CanvasGroup _mineButtonGroup;
 
+        // 0.29 で本体がマップ情報タブ（F1・全展開/収納つき）を持ち、左の一覧の開閉は本体の
+        // 仕事になったため、重複する mod 側の [採掘ポイント] ボタンは出さない（2026-09-29 試行）
+        private const bool ShowMineButton = false;
+
         // [採掘ポイント] ボタンの状態。左の縦積み（ポータル・看板・電話・採掘ポイント）
         // 全部の ON/OFF を受け持つ
         private static bool _minePointsVisible = true;
@@ -438,19 +442,18 @@ namespace LwfRavenQol
                 _stockButton = CloneTagButton(dropRect, "RavenQolStockButton", "Summon-TransporterExit",
                     OnStockButtonClicked, out _stockButtonText, out _stockButtonGroup);
             }
-            if (_mineButton == null || !_mineButton)
+            if (ShowMineButton && (_mineButton == null || !_mineButton))
             {
                 _mineButton = CloneTagButton(dropRect, "RavenQolMineButton", null,
                     OnMineButtonClicked, out _mineButtonText, out _mineButtonGroup);
                 SetupMineButtonIcons(_mineButton);
             }
-            if (_stockButton == null || _mineButton == null) { return; }
+            if (_stockButton == null || (ShowMineButton && _mineButton == null)) { return; }
             _stockButton.SetActive(true);
-            _mineButton.SetActive(true);
+            if (_mineButton != null) { _mineButton.SetActive(ShowMineButton); }
 
             // 再投下の札の下に左端を揃えて縦積み（札が隠れていても矩形は生きている）
             RectTransform stockRect = _stockButton.transform as RectTransform;
-            RectTransform mineRect = _mineButton.transform as RectTransform;
             Vector3[] drop = new Vector3[4];
             dropRect.GetWorldCorners(drop);
             float gap = (drop[1].y - drop[0].y) * 0.15f;
@@ -459,22 +462,30 @@ namespace LwfRavenQol
             stockRect.GetWorldCorners(corners);
             stockRect.position += new Vector3(drop[0].x - corners[0].x, (drop[0].y - gap) - corners[1].y, 0f);
             stockRect.GetWorldCorners(corners);   // 動かした後の位置から真下を測る
-            Vector3[] mine = new Vector3[4];
-            mineRect.GetWorldCorners(mine);
-            mineRect.position += new Vector3(corners[0].x - mine[0].x, (corners[0].y - gap) - mine[1].y, 0f);
+
+            // 積みの基準（一覧の積み始めをこの真下へ）。[採掘ポイント] を出さない間は [在庫] の下端
+            float stackAnchorY = corners[0].y;
+            if (ShowMineButton)
+            {
+                RectTransform mineRect = _mineButton.transform as RectTransform;
+                Vector3[] mine = new Vector3[4];
+                mineRect.GetWorldCorners(mine);
+                mineRect.position += new Vector3(corners[0].x - mine[0].x, (corners[0].y - gap) - mine[1].y, 0f);
+                if (_mineButtonText != null && _mineButtonText.text.Length != 0) { _mineButtonText.SetText(""); }
+                if (!_mineIconsResolved) { ApplyMineIcons(); }
+                CenterMineIcons();
+                mineRect.GetWorldCorners(mine);
+                stackAnchorY = mine[0].y;
+            }
 
             if (_stockButtonText != null && _stockButtonText.text != _stockLabel) { _stockButtonText.SetText(_stockLabel); }
-            if (_mineButtonText != null && _mineButtonText.text.Length != 0) { _mineButtonText.SetText(""); }
-            if (!_mineIconsResolved) { ApplyMineIcons(); }
-            CenterMineIcons();
             ApplyButtonStates();
 
             // 左の一覧（ポータル…）の積み始めを、ボタン列の下端の少し下へ。
             // 積みの先頭には透明にしたスポンサー枠が居座っているので、その高さぶん
             // 引き上げて、見える先頭（ポータル）がボタンの直下に来るようにする。
             // 透明枠はボタン列の裏に重なるが、見えず、クリックも素通しなので実害はない
-            mineRect.GetWorldCorners(mine);
-            PlaceLeftStackBelow(mine[0].y - gap * 2f + PatronsSpaceHeight());
+            PlaceLeftStackBelow(stackAnchorY - gap * 2f + PatronsSpaceHeight());
         }
 
         /// <summary>透明にしたスポンサー枠が積みの中で食っている高さ（ワールド座標）。</summary>
