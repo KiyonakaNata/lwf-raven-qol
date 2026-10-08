@@ -58,4 +58,4 @@
 
 設定は `BepInEx/config/kiyonakanata.lwfravenqol.cfg`。詳しくは [GitHub](https://github.com/KiyonakaNata/lwf-raven-qol)。
 
-Lazy Witch's Factory **ver 0.27.0** で動作確認。非公式のMOD、公式のサポート対象外。
+Lazy Witch's Factory **ver 0.29.1** で動作確認。非公式のMOD、公式のサポート対象外。

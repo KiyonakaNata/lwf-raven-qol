@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2 — 2026-10-08
+
+- Fixed for game v0.29.1: releasing the mouse button was not detected, so Dispatch Ports could fail to place
+- Fixed for game v0.29.1: dragging a relay chain stopped after the first segment
+- If a future game update breaks the mod, the mod turns itself off instead of stopping the game from starting
+
 ## 1.2.1 — 2026-09-29
 
 - The left-panel toggle button is gone: game v0.29 added its own Map information tab (F1), which made it redundant. The left panels now start right below the Stock button

@@ -78,6 +78,7 @@ using Map.MapObjects.PureClass.FamObjects;
 using Map.PlacerHelpers;
 using UI.Cursor;
 using UI.Cursor.Preview;
+using UI.Interaction;
 using UI.SelectableWindow.Managers;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -89,7 +90,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.2.1";
+        internal const string PluginVersion = "1.2.2";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -103,10 +104,29 @@ namespace LwfRavenQol
         internal static ConfigEntry<bool> StockVisible;
         internal static ConfigEntry<bool> StockMapOverlay;
 
+        // 本体は 0.29.1 から、起動中に例外が出るとゲームごと起動を止める（エラー画面）。
+        // 本体の更新でパッチ先が消えても MOD だけ止まって起動は通るよう、全部を受け止める。
+        // 一部だけ当たった状態は素の操作より悪い（押し込みを飲み込むのに離した時の処理が無い等）
+        // ので、失敗したら当てた分も全部外す。警告にとどめ、Unity 側のエラーには流さない
         private void Awake()
         {
             Log = Logger;
+            try
+            {
+                Boot();
+            }
+            catch (Exception e)
+            {
+                Log.LogWarning("[boot] " + PluginName + " " + PluginVersion
+                    + " disabled (the game version may have changed): " + e);
+                try { if (_harmony != null) { _harmony.UnpatchSelf(); } }
+                catch (Exception e2) { Log.LogWarning("[boot] unpatch failed: " + e2.Message); }
+                enabled = false;
+            }
+        }
 
+        private void Boot()
+        {
             ChainEnabled = Config.Bind(
                 "1. Relay Chain", "Enabled", true, "");
 
@@ -260,9 +280,9 @@ namespace LwfRavenQol
             }
         }
 
-        // 「荷下ろし地点設定」中に修飾キーを押しながら押し込んだ L-Click。
+        // 「荷下ろし地点設定」中に押し込んだ L-Click。
         // 本体はここで即座に荷下ろし地点を置いてモードを閉じてしまう。それだと
-        // 「置く → 修飾キーを押しながら引く」の2段構えが成り立たないので、
+        // 「置く → 押し込んで引く」の2段構えが成り立たないので、
         // 押し込みだけ飲み込んで、続きはドラッグ（PerformHoldAction）に任せる。
         [HarmonyPatch(typeof(TransporterExitCatalystEquip), "PerformAction")]
         internal static class ExitClick
@@ -403,20 +423,90 @@ namespace LwfRavenQol
             }
         }
 
-        // ボタンを離した合図。context.canceled のときだけがドラッグの終わり。
+        // ボタンを離した合図。Released のときだけがドラッグの終わり。
+        // 0.29.1 で引数が InputAction.CallbackContext から UIOperationRequest に変わった。
+        // Harmony は引数を名前でしか結ばないので、型がずれても起動もビルドも通ってしまう
         [HarmonyPatch(typeof(EquipActionHandler), "OnMainAction")]
         internal static class MainActionEnd
         {
-            private static void Postfix(InputAction.CallbackContext context)
+            private static void Postfix(UIOperationRequest context)
             {
                 try
                 {
-                    if (!context.canceled) { return; }
+                    if (context.Phase != UIOperationPhase.Released) { return; }
                     Chain.OnDragEnd();
                 }
                 catch (Exception e)
                 {
                     RavenQolPlugin.Log.LogError("[end] " + e);
+                }
+            }
+        }
+
+        // 0.29.1 から、本体は装備の状態が変わるたびに InvalidateEquipmentContext で
+        // 押している最中の押下を打ち切る。レイヴンを置いて「荷下ろし地点設定」に入る切り替えも
+        // これに当たるので、押したまま引き続ける（＝中継線を敷く）ことができなくなった。
+        // その切り替えの間だけ打ち切りを止め、0.29.0 までと同じく押下を続けさせる。
+        // ここでは「今その切り替え中か」を立てるだけで、止めるのは下の KeepContextOnLinking
+        [HarmonyPatch(typeof(EquipActionHandler), "OnPutExitModeChanged")]
+        internal static class KeepPressOnLinking
+        {
+            internal static bool Active;
+
+            private static void Prefix(TransporterSummonProcessor.PutExitModeState mode)
+            {
+                Active = RavenQolPlugin.ChainEnabled.Value
+                    && (mode == TransporterSummonProcessor.PutExitModeState.LinkingTransporter || Chain.InSession);
+            }
+
+            private static void Finalizer()
+            {
+                Active = false;
+            }
+        }
+
+        // InvalidateEquipmentContext は中身1行で呼び出し元に埋め込まれ、Harmony が掛からない。
+        // そこで呼び出し元の RefreshCursorState を挟み、前後で文脈の札を元に戻す
+        // （RefreshCursorState の他の仕事は 0.29.0 と同じくそのままやらせる）
+        [HarmonyPatch(typeof(EquipActionHandler), "RefreshCursorState")]
+        internal static class KeepContextOnLinking
+        {
+            private static readonly FieldInfo _fContext =
+                AccessTools.Field(typeof(PlayerMapInteractionInputRouter), "_equipmentContext");
+
+            private static void Prefix(out object __state)
+            {
+                __state = null;
+                if (!RavenQolPlugin.ChainEnabled.Value) { return; }
+                if (!KeepPressOnLinking.Active && !Chain.InSession) { return; }
+                PlayerMapInteractionInputRouter router = PlayerMapInteractionInputRouter.Instance;
+                if (router == null || _fContext == null) { return; }
+                __state = _fContext.GetValue(router);
+            }
+
+            private static void Postfix(object __state)
+            {
+                if (__state == null) { return; }
+                PlayerMapInteractionInputRouter router = PlayerMapInteractionInputRouter.Instance;
+                if (router == null) { return; }
+                _fContext.SetValue(router, __state);
+            }
+        }
+
+        // 押している最中に本体が押下を打ち切った（全画面の窓が開いた等。0.29.1 から）。
+        // このときは OnMainAction を通らないので、離した扱いにはせず敷きかけを捨てる
+        [HarmonyPatch(typeof(EquipActionHandler), "CancelHoldAction")]
+        internal static class MainActionAbort
+        {
+            private static void Postfix()
+            {
+                try
+                {
+                    Chain.AbortDrag();
+                }
+                catch (Exception e)
+                {
+                    RavenQolPlugin.Log.LogError("[abort] " + e);
                 }
             }
         }
@@ -773,7 +863,7 @@ namespace LwfRavenQol
         }
 
         /// <summary>
-        /// 「荷下ろし地点設定」中で修飾キーが押されているなら、押し込みを飲み込んで
+        /// 「荷下ろし地点設定」中なら、押し込みを飲み込んで
         /// ドラッグの起点にする。飲み込んだことは覚えておく（引かずに離した場合、
         /// 本体どおり離した位置へ置いてやるため）。
         /// </summary>
@@ -1130,6 +1220,23 @@ namespace LwfRavenQol
         }
 
         // ---- ドラッグの終わり --------------------------------------------
+
+        /// <summary>中継線を敷いている途中（押し込みを飲み込んだ・1区間以上敷いた・敷いている最中）。</summary>
+        internal static bool InSession { get { return _hops > 0 || _hopInFlight || _swallowedClick; } }
+
+        /// <summary>
+        /// 押下が打ち切られた（ポーズ・全画面の窓）。何も置かずに敷きかけの状態だけ捨てる。
+        /// 離した後の自動継続は押下とは別なので止めない（ポーズ明けにそのまま続く）。
+        /// </summary>
+        internal static void AbortDrag()
+        {
+            if (_autoActive) { return; }
+            if (_hops > 0 || _swallowedClick)
+            {
+                RavenQolPlugin.Log.LogInfo("[chain] press aborted (hops=" + _hops + ")");
+            }
+            ResetSession();
+        }
 
         /// <summary>
         /// ボタンを離した瞬間。中継線が伸びていたら、最後の荷下ろし地点を置いて閉じる。

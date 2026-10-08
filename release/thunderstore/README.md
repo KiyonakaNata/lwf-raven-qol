@@ -53,4 +53,4 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
 Settings: `BepInEx/config/kiyonakanata.lwfravenqol.cfg`. Full documentation: [GitHub](https://github.com/KiyonakaNata/lwf-raven-qol).
 
-Tested on Lazy Witch's Factory **ver 0.27.0**. Unofficial mod, not supported by the developer.
+Tested on Lazy Witch's Factory **ver 0.29.1**. Unofficial mod, not supported by the developer.
