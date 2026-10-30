@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3 — 2026-10-30
+
+- Fixed: the hover stock panel did not appear from the start of a run until a Raven had been placed once
+- Fixed: the hover stock panel did not appear while a chest or crafter window was open, even though the game's own hover info did
+- Fixed: the stock panel was drawn on top of the end-of-run result screen
+
 ## 1.2.2 — 2026-10-08
 
 - Fixed for game v0.29.1: releasing the mouse button was not detected, so Dispatch Ports could fail to place

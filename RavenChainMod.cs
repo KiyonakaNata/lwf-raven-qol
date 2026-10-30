@@ -90,7 +90,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.2.2";
+        internal const string PluginVersion = "1.2.3";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -909,9 +909,23 @@ namespace LwfRavenQol
             return true;
         }
 
-        /// <summary>カーソルが何を指しているか。中身の表示から使う。</summary>
+        /// <summary>
+        /// カーソルが何を指しているか。中身の表示から使う。
+        /// 本体は CursorHitChecker を1個しか作らず（EquipActionHandler の生成時）、作った瞬間に
+        /// GameStateManager へ登録するので、そこから取るのが確実。
+        /// 触媒側の cursorHitChecker フィールドは SetCursorState で渡されるまで空＝
+        /// 「荷下ろし地点設定」に一度入るまで null のままなので、ランの始めにそちらを見ると
+        /// 何も取れない（中身の表示がレイヴンを置くまで出なかった原因。2026-10-30）。
+        /// 触媒側は GameStateManager に無いときの控え。
+        /// </summary>
         internal static CursorHitChecker CurrentCursorHitChecker()
         {
+            GameStateManager state = GameStateManager.Instance;
+            if (state != null && state)
+            {
+                CursorHitChecker shared = state.GetCursorHitChecker();
+                if (shared != null) { return shared; }
+            }
             EnsureEquips();
             if (_exitEquip == null || _fHit == null) { return null; }
             return _fHit.GetValue(_exitEquip) as CursorHitChecker;

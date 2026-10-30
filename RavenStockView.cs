@@ -26,6 +26,7 @@
 // 縦横比も位置も崩れるので、論理サイズを基準に縮尺を決めてその中へ置く。
 
 using System.Collections.Generic;
+using GameState;
 using Items;
 using Items.Inventory;
 using Items.ValueCountSettings;
@@ -37,6 +38,7 @@ using Map.MapObjects.PureClass.FamObjects;
 using UI;
 using UI.Cursor;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace LwfRavenQol
@@ -120,6 +122,12 @@ namespace LwfRavenQol
             _hiddenKinds = 0;
             if (!_visible) { OverlayEntries.Clear(); return; }
 
+            // IMGUI は uGUI より常に上に描かれるので、リザルト画面（完済・破産）の上に札が貫通する。
+            // 本体が自分の窓を開かせない条件（IsEndingGame：締め→ジングル→リザルト→終了）で
+            // ホバーも俯瞰の札も丸ごと止める（2026-10-30）
+            GameStateManager state = GameStateManager.Instance;
+            if (state != null && state && state.IsEndingGame()) { OverlayEntries.Clear(); return; }
+
             if (HudTweaks.IsMapViewActive() && _overlayOn)
             {
                 ScanOverlay();
@@ -201,12 +209,12 @@ namespace LwfRavenQol
         private static void Scan()
         {
             // マップビューでは盤面を触れる状態の判定が別物なので、UI の上かどうかだけ見る。
-            // 通常画面はこれまでどおり（メニューや窓が開いている間は出さない）
+            // 通常画面は「本体のホバー情報が出る状態」に合わせる（下記 CanHoverBoard）
             if (HudTweaks.IsMapViewActive())
             {
                 if (PointerOverFinder.IsPointerOverUI) { return; }
             }
-            else if (!Chain.IsMapInteractive()) { return; }
+            else if (!CanHoverBoard()) { return; }
 
             CursorHitChecker hit = Chain.CurrentCursorHitChecker();
             if (hit == null) { return; }
@@ -247,6 +255,24 @@ namespace LwfRavenQol
 
             _anchorWorld = target.pivot.transform.position;
             _hasTarget = true;
+        }
+
+        /// <summary>
+        /// 通常画面で盤面のホバーを出してよいか。本体が自分のホバー情報窓を出す条件
+        /// （UI の上でない）に、盤面の入力が切られていない（メニュー・契約の窓など）を足しただけ。
+        ///
+        /// 以前は Chain.IsMapInteractive() を使っていたが、あれは本体が Tab を受け付ける条件で、
+        /// 「インベントリの窓が選ばれているか（EquipActionHandler._canUse）」まで見る。
+        /// 倉庫や工房の窓を開いている間はそちらが選ばれてインベントリは外れるので、本体の
+        /// ホバー情報は出るのに中身だけ出ない、という食い違いになっていた（2026-10-30）。
+        /// </summary>
+        private static bool CanHoverBoard()
+        {
+            if (PointerOverFinder.IsPointerOverUI) { return false; }
+            PlayerActionMap map = PlayerActionMap.Instance;
+            if (map == null) { return false; }
+            InputAction main = map.GetMainAction();
+            return main != null && main.enabled;
         }
 
         private static int CompareByCountDescending(Row a, Row b)
