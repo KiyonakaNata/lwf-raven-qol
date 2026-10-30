@@ -263,7 +263,7 @@ namespace LwfRavenQol
         ///
         /// 以前は Chain.IsMapInteractive() を使っていたが、あれは本体が Tab を受け付ける条件で、
         /// 「インベントリの窓が選ばれているか（EquipActionHandler._canUse）」まで見る。
-        /// 倉庫や工房の窓を開いている間はそちらが選ばれてインベントリは外れるので、本体の
+        /// 本体の別の窓（契約・追加融資など）が選ばれている間はインベントリが外れるので、本体の
         /// ホバー情報は出るのに中身だけ出ない、という食い違いになっていた（2026-10-30）。
         /// </summary>
         private static bool CanHoverBoard()
