@@ -90,7 +90,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.2.3";
+        internal const string PluginVersion = "1.2.4";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -1086,7 +1086,7 @@ namespace LwfRavenQol
             // （先回りして置くと、ちょっと引いただけで満額の区間が生えてしまう）
             if (Manhattan(delta) < span + 1) { return nothing; }
 
-            if (index.GetCurrentItemCount() <= 0) { Skip(null); return nothing; }
+            if (RavenCatalystCount() <= 0) { Skip(null); return nothing; }
             if (_ravenEquip == null) { Skip(null); return nothing; }
 
             // 荷下ろし地点は、運搬範囲のひし形の縁（マンハッタン距離ちょうど span）のどこか。
@@ -1119,7 +1119,7 @@ namespace LwfRavenQol
                         if (nextAddr == from) { continue; }                 // 元のレイヴンの上には置けない
                         if (!CanPlace(hit, nextAddr)) { if (reason == null) { reason = BlockReason(hit, nextAddr); } continue; }
 
-                        Hop hop = new Hop(exitEquip, hit, placer, proc, index, raven, exitAddr, nextAddr, dir);
+                        Hop hop = new Hop(exitEquip, hit, placer, proc, raven, exitAddr, nextAddr, dir);
                         _lastStepPlaced = true;
                         return hop.Start();
                     }
@@ -1139,7 +1139,6 @@ namespace LwfRavenQol
             private readonly CursorHitChecker _hit;
             private readonly MapObjectPlacer _placer;
             private readonly TransporterSummonProcessor _proc;
-            private readonly InventoryIndex _index;
             private readonly TransporterObject _raven;
             private readonly Vector2Int _exitAddr;
             private readonly Vector2Int _nextAddr;
@@ -1148,14 +1147,13 @@ namespace LwfRavenQol
             private TransporterExitObject _placedExit;
 
             internal Hop(TransporterExitCatalystEquip exitEquip, CursorHitChecker hit, MapObjectPlacer placer,
-                TransporterSummonProcessor proc, InventoryIndex index, TransporterObject raven,
+                TransporterSummonProcessor proc, TransporterObject raven,
                 Vector2Int exitAddr, Vector2Int nextAddr, Direction4 dir)
             {
                 _exitEquip = exitEquip;
                 _hit = hit;
                 _placer = placer;
                 _proc = proc;
-                _index = index;
                 _raven = raven;
                 _exitAddr = exitAddr;
                 _nextAddr = nextAddr;
@@ -1217,7 +1215,7 @@ namespace LwfRavenQol
                     Block("InvalidDestination");
                     return _placedExit;
                 }
-                UseOneCatalyst(_index);
+                UseOneCatalyst();
 
                 ChildGrid nextGrid = next.GetAddressGrid();
                 if (nextGrid == null) { Block(null); return next; }
@@ -1672,13 +1670,26 @@ namespace LwfRavenQol
             }
         }
 
-        private static void UseOneCatalyst(InventoryIndex index)
+        // 本体 0.31.0 から所持品欄の枠番号と DB のセル番号が別物になった（PlayerHotbarLayout）。
+        // 枠番号で WithdrawSingleBox するとその番号のセルにある別の品目（サラマンダー等）を取ってしまう。
+        // 選択中の枠にも頼らない（左詰めでレイヴンが 0 になると枠が詰まり、選択中の品目が変わる）。
+        // 払うのは置いたレイヴンが回収時に返す品目（FamMaster の SummonItemID）と同じもの。
+        private const string RavenCatalystId = "Summon-Transporter";
+
+        private static int RavenCatalystCount()
+        {
+            InventoryManager inv = InventoryManager.playerInventory;
+            if (inv == null || inv.GetDB() == null) { return 0; }
+            return inv.GetDB().GetCount(RavenCatalystId);
+        }
+
+        private static void UseOneCatalyst()
         {
             InventoryManager inv = InventoryManager.playerInventory;
             if (inv == null) { return; }
             InventoryWithdrawer withdrawer = inv.GetWithdrawer();
             if (withdrawer == null) { return; }
-            withdrawer.WithdrawSingleBox(1, index.GetCurrentSelectedID());
+            withdrawer.Withdraw(RavenCatalystId, 1);
         }
 
         /// <summary>

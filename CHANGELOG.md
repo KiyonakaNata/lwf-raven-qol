@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4 — 2026-11-09
+
+- Fixed for game v0.31: dragging a relay chain used up another inventory item (such as Blacksmith Salamander) instead of Delivery Ravens
+
 ## 1.2.3 — 2026-10-30
 
 - Fixed: the stock panel sometimes did not appear when pointing at a Dispatch Port or a Raven
