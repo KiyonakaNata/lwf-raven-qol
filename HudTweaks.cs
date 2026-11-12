@@ -58,6 +58,7 @@ namespace LwfRavenQol
             "_manualSummonConveyor",
             "_manualSummonTransporter",
             "_manualSummonWorker",
+            "_manualSummonFarmer",
             "_manualWandSkill",
             "_manualCommonAction",
             "_manualCommonMovement"

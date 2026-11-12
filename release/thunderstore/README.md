@@ -26,15 +26,16 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
 ![Retargeting](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/retarget.webp)
 
-## See what's inside
+## Dark mode for Show Inventory
 
-- Hover a Raven or Dispatch Port → icon × count
+- The game's Show Inventory bubbles (default `Alt`, hold) switch to dark mode
 
-![Hover stock panel](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/stock-hover.png)
+![Dark mode for Show Inventory](https://raw.githubusercontent.com/KiyonakaNata/lwf-raven-qol/main/img/stock-dark.png)
 
 ## Map view
 
-- Top left: redeploy Momoko / stock overlay
+- Top left: Redeploy / Stock buttons
+- Point at a Raven or Dispatch Port → stock display (icon × count)
 - Since 1.2.1 the left-panel toggle is gone: game v0.29 added its own Map information tab (F1)
 - Control hints and sponsors are hidden
 - The wand panel shows while a wand skill is selected
@@ -53,4 +54,4 @@ A QoL mod for Delivery Ravens in **Lazy Witch's Factory**.
 
 Settings: `BepInEx/config/kiyonakanata.lwfravenqol.cfg`. Full documentation: [GitHub](https://github.com/KiyonakaNata/lwf-raven-qol).
 
-Tested on Lazy Witch's Factory **ver 0.29.1**. Unofficial mod, not supported by the developer.
+Tested on Lazy Witch's Factory **ver 0.32.0**. Unofficial mod, not supported by the developer.

@@ -1,13 +1,19 @@
 # Changelog
 
+## 1.3.0 — 2026-11-12
+
+- Changed: the stock display shows in map view only (the game has its own Show Inventory since v0.32)
+- Changed: pointing at a Raven or Dispatch Port in map view shows no stock display while Stock is on
+- Added: dark mode for Show Inventory
+
 ## 1.2.4 — 2026-11-09
 
 - Fixed for game v0.31: dragging a relay chain used up another inventory item (such as Blacksmith Salamander) instead of Delivery Ravens
 
 ## 1.2.3 — 2026-10-30
 
-- Fixed: the stock panel sometimes did not appear when pointing at a Dispatch Port or a Raven
-- Fixed: the stock panel was drawn over the end-of-run result screen
+- Fixed: the stock display sometimes did not appear when pointing at a Dispatch Port or a Raven
+- Fixed: the stock display was drawn over the end-of-run result screen
 
 ## 1.2.2 — 2026-10-08
 

@@ -210,11 +210,12 @@ namespace LwfRavenQol
         {
             // マップビューでは盤面を触れる状態の判定が別物なので、UI の上かどうかだけ見る。
             // 通常画面は「本体のホバー情報が出る状態」に合わせる（下記 CanHoverBoard）
-            if (HudTweaks.IsMapViewActive())
-            {
-                if (PointerOverFinder.IsPointerOverUI) { return; }
-            }
-            else if (!CanHoverBoard()) { return; }
+            // 通常画面は本体の在庫表示（0.32.0・Alt 長押し）に任せる。本体は俯瞰で出せないので、
+            // MOD のホバーは俯瞰だけに残す（2026-11-12）
+            if (!HudTweaks.IsMapViewActive()) { return; }
+            // 在庫札を出している間は、ホバーで何も足さない（同じ物に札が2枚重なる。2026-11-12）
+            if (_overlayOn) { return; }
+            if (PointerOverFinder.IsPointerOverUI) { return; }
 
             CursorHitChecker hit = Chain.CurrentCursorHitChecker();
             if (hit == null) { return; }
@@ -330,9 +331,11 @@ namespace LwfRavenQol
 
             EnsureResources();
 
-            float icon = Mathf.Clamp(Screen.height * 0.026f, 16f, 40f);
-            float gap = Mathf.Round(icon * 0.25f);
-            float pad = Mathf.Round(icon * 0.30f);
+            // 大きさは在庫札（DrawOverlay）と同じ。ホバーは俯瞰でしか出さないので、
+            // 通常画面用の大きい札だと隣のマスまで覆う（2026-11-12）
+            float icon = Mathf.Clamp(Screen.height * 0.020f, 12f, 30f);
+            float gap = Mathf.Round(icon * 0.22f);
+            float pad = Mathf.Round(icon * 0.22f);
             float rowHeight = icon;
 
             // 一番長い数字に幅を合わせる。詰めすぎると末尾が切れる。
@@ -340,12 +343,12 @@ namespace LwfRavenQol
             for (int i = 0; i < Rows.Count; i++)
             {
                 Content.text = Rows[i].Count.ToString();
-                numberWidth = Mathf.Max(numberWidth, _countStyle.CalcSize(Content).x);
+                numberWidth = Mathf.Max(numberWidth, _overlayStyle.CalcSize(Content).x);
             }
             if (_hiddenKinds > 0)
             {
                 Content.text = "+" + _hiddenKinds;
-                numberWidth = Mathf.Max(numberWidth, _countStyle.CalcSize(Content).x);
+                numberWidth = Mathf.Max(numberWidth, _overlayStyle.CalcSize(Content).x);
             }
 
             int lines = Rows.Count + ((_hiddenKinds > 0) ? 1 : 0);
@@ -355,7 +358,7 @@ namespace LwfRavenQol
             float height = pad * 2f + rowHeight * lines;
 
             float x = screen.x - width * 0.5f;
-            float y = (float)Screen.height - screen.y - height - Screen.height * 0.035f;
+            float y = (float)Screen.height - screen.y - height - Screen.height * 0.012f;
 
             // 画面からはみ出さないよう寄せる。切れて読めないのが一番困る。
             x = Mathf.Clamp(x, 4f, Mathf.Max(4f, (float)Screen.width - width - 4f));
@@ -371,13 +374,13 @@ namespace LwfRavenQol
                 DrawSprite(iconRect, ItemParamGetter.GetSprite(Rows[i].ItemID), Color.white);
 
                 Rect numberRect = new Rect(iconRect.xMax + gap, rowY, numberWidth, rowHeight);
-                DrawShadowedText(numberRect, _countStyle, Rows[i].Count.ToString(), TextColor);
+                DrawShadowedText(numberRect, _overlayStyle, Rows[i].Count.ToString(), TextColor);
                 rowY += rowHeight;
             }
             if (_hiddenKinds > 0)
             {
                 Rect numberRect = new Rect(panel.x + pad, rowY, panel.width - pad * 2f, rowHeight);
-                DrawShadowedText(numberRect, _countStyle, "+" + _hiddenKinds, TextColor);
+                DrawShadowedText(numberRect, _overlayStyle, "+" + _hiddenKinds, TextColor);
             }
         }
 

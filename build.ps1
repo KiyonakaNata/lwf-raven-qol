@@ -13,6 +13,8 @@
 
 param(
     [switch]$NoDeploy,
+    # 開発用の道具（DevShot）を入れる。配布物には付けない
+    [switch]$Dev,
     # 別の場所に入れている場合はここを書き換えるか -Game で指す
     [string]$Game = "D:\SteamLibrary\steamapps\common\Lazy Witch's Factory"
 )
@@ -31,8 +33,10 @@ $outDll  = Join-Path $outDir 'LwfRavenQol.dll'
 $sources = @(
     (Join-Path $here 'RavenChainMod.cs'),  # プラグイン本体（Harmony の割り込みと中継線の敷き方）
     (Join-Path $here 'RavenStockView.cs'),  # 中身の表示（ゲームの挙動には触らない）
+    (Join-Path $here 'RavenStockBubble.cs'), # 本体の在庫表示（吹き出し）を暗い配色に塗り替える
     (Join-Path $here 'HudTweaks.cs'),      # マップビューの HUD 調整（同上）
-    (Join-Path $here 'MapHalfStep.cs')     # マップビューの半歩移動（境界に止まる）
+    (Join-Path $here 'MapHalfStep.cs'),    # マップビューの半歩移動（境界に止まる）
+    (Join-Path $here 'DevShot.cs')         # 開発用：ゲームの中から画面を撮る（-Dev のときだけ中身が入る）
 )
 
 foreach ($p in @($Csc, $Managed) + $sources) {
@@ -66,6 +70,8 @@ $refNames = @(
     'Unity.ResourceManager.dll',
     'UnityEngine.UI.dll',
     'Unity.TextMeshPro.dll',
+    'Unity.RenderPipelines.Core.Runtime.dll',
+    'Unity.RenderPipelines.Universal.Runtime.dll',
     'DOTween.dll',
     'UnityEngine.AudioModule.dll',
     'UnityEngine.PhysicsModule.dll',
@@ -74,6 +80,7 @@ $refNames = @(
     'UnityEngine.UIModule.dll',
     'UnityEngine.InputLegacyModule.dll',
     'UnityEngine.ImageConversionModule.dll',
+    'UnityEngine.ScreenCaptureModule.dll',
     'UnityEngine.ParticleSystemModule.dll',
     'UnityEngine.TilemapModule.dll',
     'UnityEngine.VideoModule.dll'
@@ -99,7 +106,7 @@ $cscArgs = @(
     # 無いと SymbolsNotFoundException で読み込みに失敗する
     '/debug:pdbonly',
     "/out:`"$outDll`""
-) + $refs + ($sources | ForEach-Object { "`"$_`"" })
+) + $(if ($Dev) { @('/define:DEV') } else { @() }) + $refs + ($sources | ForEach-Object { "`"$_`"" })
 
 Write-Host "ビルド中: $outDll"
 $psi = New-Object System.Diagnostics.ProcessStartInfo

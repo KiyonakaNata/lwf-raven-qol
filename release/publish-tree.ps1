@@ -2,7 +2,7 @@
 #
 #   powershell -ExecutionPolicy Bypass -File release\publish-tree.ps1 [-Dest D:\Wiki\lwf-raven-qol]
 #
-# 出すもの:  ソース 4 本・build.ps1、release\ の README.md / README.en.md / CHANGELOG.md・img\・
+# 出すもの:  ソース 6 本・build.ps1、release\ の README.md / README.en.md / CHANGELOG.md・img\・
 #            release.ps1・zip-README.txt・publish-tree.ps1・thunderstore\
 # 出さないもの:
 #   - README.md（開発用。設計の記録と手元のパスを含む）
@@ -27,7 +27,7 @@ function CopyTo($src, $rel) {
     Copy-Item $src -Destination $dst -Force
 }
 
-foreach ($f in @('RavenChainMod.cs','RavenStockView.cs','HudTweaks.cs','MapHalfStep.cs','build.ps1')) {
+foreach ($f in @('RavenChainMod.cs','RavenStockView.cs','RavenStockBubble.cs','HudTweaks.cs','MapHalfStep.cs','DevShot.cs','build.ps1')) {
     CopyTo (Join-Path $mod $f) $f
 }
 

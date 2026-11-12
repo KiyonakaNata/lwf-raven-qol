@@ -55,15 +55,11 @@ The old Dispatch Port **stays**, and leftover items can be taken out with convey
 A Dispatch Port that still holds items also stays when its Raven is removed. It does not disappear on its own once empty; right-click it to remove it.
 If the Raven is mid-flight, it returns home, reloads, and heads for the new target.
 
-### See what's inside
+### Dark mode for Show Inventory
 
-Point at a Raven or a Dispatch Port to see what it holds, as "icon × count"
+The game's Show Inventory bubbles (default Alt, hold) switch to dark mode
 
-![Hover stock panel](img/stock-hover.png)
-
-- Dispatch port: items not yet carried out
-- Raven: items in hand plus items in transit
-- Up to 8 kinds, largest first; the rest shows as `+N`
+![Dark mode for Show Inventory](img/stock-dark.png)
 
 ### Map view
 
@@ -80,6 +76,15 @@ Two buttons sit at the top left
 - The control hints and the development sponsor list are hidden. The wand panel shows while a wand skill is selected.
 
 ![Map view buttons](img/mapview.webp)
+
+**Stock display**
+
+Point at a Raven or a Dispatch Port to see what it holds, as "icon × count"
+
+- Dispatch port: items not yet carried out
+- Raven: items in hand plus items in transit
+- Up to 8 kinds, largest first; the rest shows as `+N`
+- Does not show while Stock is on
 
 #### Half-tile stops
 
@@ -145,6 +150,7 @@ Adds "between tiles" to the map view's camera stops.
 |---|---|---|
 | Enabled | `true` | |
 | Show map-view stock on entry | `false` | Initial state of the Stock button |
+| Dark mode for Show Inventory | `true` | |
 
 **[4. Map View]**
 
@@ -160,7 +166,7 @@ Adds "between tiles" to the map view's camera stops.
 
 | | |
 |---|---|
-| Lazy Witch's Factory | Tested on **ver 0.29.1** |
+| Lazy Witch's Factory | Tested on **ver 0.32.0** |
 | BepInEx | Tested on **5.4.23.5** (any 5.4.x should work) |
 
 If a game update breaks this mod, that is the end of its life — remove it.

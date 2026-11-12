@@ -90,7 +90,7 @@ namespace LwfRavenQol
     {
         internal const string PluginGuid = "kiyonakanata.lwfravenqol";
         internal const string PluginName = "LWF Raven QoL";
-        internal const string PluginVersion = "1.2.4";
+        internal const string PluginVersion = "1.3.0";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
@@ -103,6 +103,7 @@ namespace LwfRavenQol
         internal static ConfigEntry<bool> MapHalfStepEnabled;
         internal static ConfigEntry<bool> StockVisible;
         internal static ConfigEntry<bool> StockMapOverlay;
+        internal static ConfigEntry<bool> StockDarkMode;
 
         // 本体は 0.29.1 から、起動中に例外が出るとゲームごと起動を止める（エラー画面）。
         // 本体の更新でパッチ先が消えても MOD だけ止まって起動は通るよう、全部を受け止める。
@@ -122,6 +123,18 @@ namespace LwfRavenQol
                 try { if (_harmony != null) { _harmony.UnpatchSelf(); } }
                 catch (Exception e2) { Log.LogWarning("[boot] unpatch failed: " + e2.Message); }
                 enabled = false;
+                return;
+            }
+
+            // 在庫表示の配色は他の機能と独立。外れても MOD は止めない
+            try
+            {
+                StockBubble.Patch(_harmony);
+                Log.LogInfo("[boot] inventory bubble patched");
+            }
+            catch (Exception e)
+            {
+                Log.LogWarning("[boot] inventory bubble colors disabled (the game version may have changed): " + e);
             }
         }
 
@@ -150,6 +163,10 @@ namespace LwfRavenQol
             // マップビューの「在庫」ボタンの初期状態。普段は隠して、見たいときだけボタンで出す
             StockMapOverlay = Config.Bind(
                 "3. Stock Display", "Show map-view stock on entry", false, "");
+
+            // 本体の在庫表示（Alt 長押しの吹き出し）の配色。切り替えはその場で効く
+            StockDarkMode = Config.Bind(
+                "3. Stock Display", "Dark mode for Show Inventory", true, "");
 
             MapEnabled = Config.Bind(
                 "4. Map View", "Enabled", true, "");
@@ -204,6 +221,13 @@ namespace LwfRavenQol
 
             try { MapHalfStep.Update(); }
             catch (Exception e) { Log.LogError("[map] " + e); }
+
+            try { StockBubble.Update(); }
+            catch (Exception e) { Log.LogError("[stock] " + e); }
+#if DEV
+            try { DevShot.Update(); }
+            catch (Exception e) { Log.LogError("[dev] " + e); }
+#endif
         }
 
         private void OnGUI()
@@ -220,6 +244,9 @@ namespace LwfRavenQol
         {
             try { HudTweaks.RestoreOnUnload(); }
             catch (Exception e) { Log.LogWarning("[hud] " + e); }
+
+            try { StockBubble.Teardown(); }
+            catch (Exception e) { Log.LogWarning("[stock] " + e); }
 
             if (_harmony == null) { return; }
             try { _harmony.UnpatchSelf(); }
